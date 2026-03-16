@@ -1,102 +1,196 @@
-# OGP Phase 3 — Rate Limiting, Real Intents & Abuse Prevention
+# OGP Phase 3 — Intent Taxonomy, Handler Registry & Real Capabilities
 
 ## Goal
-Make OGP production-ready: protect against abuse, wire in real data sources,
-and prove the meeting-scheduling use case end-to-end.
+Transform OGP from a protocol demo into a real capability exchange platform.
+Phase 3 introduces a standard intent taxonomy, a configurable handler registry,
+per-peer parameter enforcement, rate limiting, and the `ogp-intent` skill.
 
 ---
 
-## What Phase 3 Builds
+## Phase 3A — Intent Taxonomy + Handler Registry
 
-### 1. Per-peer token bucket rate limiting
-- Each approved peer gets a rate limit bucket (e.g. 10 requests/hour by default)
-- Bucket refills gradually — burst drains it fast, then hits a wall
-- Stored in peer record: `{ bucket: { tokens: N, lastRefill: ISO8601 } }`
-- On each inbound message: check bucket before processing, deduct 1 token, reject with 429 if empty
-- Global policy cap in `openclaw.json` overrides per-peer settings
+### Standard Intent Taxonomy (OGP v0.1)
 
-### 2. Real web-search intent
-- Replace echo stub with actual Brave Search API call (already have the API key)
-- Return top 3-5 results: title, URL, snippet
-- This makes `federation send --intent web-search` genuinely useful
+| Intent | Description | Input | Output |
+|---|---|---|---|
+| `ping` | Liveness check | `{}` | `{status, gatewayId, ts}` |
+| `calendar-read` | Get free/busy slots | `{range, duration, tz?}` | `{available: [slots], tz}` |
+| `calendar-write` | Create an event | `{slot, title, attendees?, notes?}` | `{eventId, status}` |
+| `web-search` | Search the web | `{query, limit?}` | `{results: [{title, url, snippet}]}` |
+| `issue-list` | List open issues/tickets | `{project?, limit?, status?}` | `{issues: [{id, title, status, assignee}]}` |
+| `issue-get` | Get a specific issue | `{id}` | `{id, title, status, description, assignee}` |
+| `note-create` | Create a note | `{title, content, folder?}` | `{noteId, status}` |
+| `note-search` | Search notes | `{query}` | `{notes: [{title, snippet, id}]}` |
+| `send-message` | Send a message | `{channel, target, text}` | `{status, messageId?}` |
+| `task-create` | Create a task | `{title, notes?, due?}` | `{taskId, status}` |
 
-### 3. Calendar intent (the meeting scheduling demo)
-- `calendar-read` intent: given a date range, return available slots
-- Calls Google Calendar API via existing `gws` CLI / gog skill
-- Returns: `{ available: ["Mon 2pm", "Wed 10am"], timezone: "America/Denver" }`
-- This enables the flagship demo: David tells Junior to find a meeting time with Stan
+`ping` is built-in and always works. All others require a configured handler.
 
-### 4. Spike detection + auto-pause
-- If a peer sends 3x their normal rate in 10 minutes → auto-pause relationship + notify owner
-- Owner can re-enable via `openclaw federation unpause <gatewayId>`
-- Logged to `federation-audit.log` in state dir
+### Handler Registry
 
-### 5. Concurrent request cap
-- Max 2 federated requests executing simultaneously per peer
-- 3rd request queued, not rejected (unless queue depth > 5, then reject)
+Each gateway has a local `ogp-intent-registry.json` in state dir:
+
+```json
+{
+  "version": "1.0",
+  "handlers": {
+    "ping": { "type": "builtin" },
+    "calendar-read": {
+      "type": "command",
+      "command": "gws calendar freebusy --range {range} --duration {duration}"
+    },
+    "web-search": {
+      "type": "command",
+      "command": "brave-search {query}"
+    },
+    "issue-list": {
+      "type": "command",
+      "command": "mcporter call linear list_issues --project {project}"
+    }
+  },
+  "custom": {
+    "sprint-health": {
+      "description": "Custom sprint health check",
+      "input": { "project": "string" },
+      "output": { "health": "string", "openIssues": "number" },
+      "command": "~/scripts/sprint-health.sh {project}"
+    }
+  }
+}
+```
+
+Handler types:
+- `builtin` — handled in code (ping)
+- `command` — shell command with `{param}` substitution
+- `skill` — invoke an OpenClaw skill
+
+### scopeParams — Per-Peer Parameter Enforcement
+
+When approving a peer, you can enforce or restrict parameters:
+
+```json
+"peers": {
+  "gw:joe@company.com": {
+    "scope": ["issue-list"],
+    "scopeParams": {
+      "issue-list": {
+        "project": { "mode": "enforce", "value": "project-j" }
+      }
+    }
+  },
+  "gw:bob@company.com": {
+    "scope": ["issue-list"],
+    "scopeParams": {
+      "issue-list": {
+        "project": { "mode": "restrict", "allowed": ["project-b", "project-b-archive"] }
+      }
+    }
+  }
+}
+```
+
+Modes:
+- `enforce` — always override with this value, ignore what peer sends
+- `restrict` — peer can only send values from the allowed list
+- `passthrough` — peer can send any value (default)
+
+### Federation Card Update
+
+Gateway card now includes only intents with configured handlers:
+
+```json
+{
+  "gatewayId": "gw:david.proctor@trilogy.com",
+  "capabilities": ["ping", "calendar-read", "web-search", "issue-list", "sprint-health"],
+  ...
+}
+```
 
 ---
 
-## The Meeting Scheduling Demo (end goal)
+## Phase 3B — Rate Limiting + Abuse Prevention
 
-**Setup:**
-- David's local gateway (port 12000) has Google Calendar access
-- "Stan's" gateway (port 12010) has Google Calendar access
+- Per-peer token bucket (default 10 req/hour)
+- Global policy cap in `openclaw.json`
+- Spike detection → auto-pause + notify owner
+- Concurrent request cap (max 2 per peer)
+- `federation unpause <gatewayId>` CLI command
 
-**Flow:**
+---
+
+## Phase 3C — Real Intent Handlers
+
+Wire up actual implementations for standard intents:
+- `calendar-read` → gws/gog Google Calendar freebusy
+- `web-search` → Brave Search API
+- `issue-list` → mcporter Linear/Jira
+- `ping` → already works
+
+---
+
+## Phase 3D — `ogp-intent` Skill
+
+Interview-based skill for creating and sharing custom intents.
+
+Flow:
+1. Maps intent to standard taxonomy or creates custom
+2. Prompts for handler command
+3. Prompts for per-peer scopeParams
+4. Registers in `ogp-intent-registry.json`
+5. Outputs export snippet (JSON) to share with peers
+
+Export snippet format:
+```json
+{
+  "ogp-intent": "sprint-health",
+  "version": "1.0",
+  "schema": {
+    "input": { "project": "string" },
+    "output": { "health": "string", "openIssues": "number" }
+  },
+  "description": "Returns sprint health metrics for a project"
+}
+```
+
+Import: `openclaw federation import-intent <file.json>` adds intent to local registry
+so your gateway understands what the intent means when a peer sends it.
+
+---
+
+## Phase 3E — Meeting Scheduling Demo (end-to-end)
+
+**The flagship use case:**
+
 ```
 David: "Find a 30-minute meeting with Stan next week"
 
-Junior (Gateway A):
-→ federation send latent-genius.local:12010
-  --intent calendar-read
-  --payload {"range": "next week", "duration": 30}
+Junior → OGP message to Stan's gateway:
+  intent: "calendar-read"
+  payload: { range: "next week", duration: 30 }
 
-Stan's Gateway (B) receives:
-→ verifies signature ✅
-→ checks scope includes calendar-read ✅
-→ checks rate limit ✅
-→ reads Stan's Google Calendar
-→ returns { available: ["Mon 3pm", "Tue 10am", "Wed 2pm"] }
+Stan's gateway: reads his Google Calendar → returns available slots
 
-Gateway A receives reply:
-→ Junior: "Stan is free Monday 3pm, Tuesday 10am, or Wednesday 2pm.
-   Which works for you?"
-
+Junior: "Stan is free Monday 3pm, Tuesday 10am. Which works?"
 David: "Monday 3pm"
-
-Junior: creates Google Calendar event for David + sends confirmation to Stan's gateway
+Junior: creates event on both calendars
 ```
 
-Zero human relay. This is the proof case.
+Zero human relay. This is the proof the protocol is real.
 
 ---
 
-## Phase 3 Sequence
+## Build Order
 
-1. Rate limiting (token bucket) — 2-3 days
-2. Real web-search via Brave API — 1 day
-3. Calendar intent (calendar-read) — 2-3 days  
-4. Spike detection + auto-pause — 1 day
-5. End-to-end meeting scheduling demo — 1 day
-6. `DEMO-phase3.md` + re-record all demos clean — 1 day
-
-**Total estimate:** ~1 week of focused development
+1. **3A** — Intent registry, handler dispatch, scopeParams, card update
+2. **3B** — Rate limiting
+3. **3C** — Real handlers (calendar, search)
+4. **3D** — ogp-intent skill
+5. **3E** — Meeting demo end-to-end
 
 ---
 
-## What Phase 3 Does NOT Include
-- Calendar write (creating events) — Phase 4
-- Natural language intent parsing — Phase 4
-- Portal UI for federation — Phase 4
-- Multi-hop routing — not in scope for v1
+## What Doesn't Change
 
----
-
-## Backlog items captured for Phase 4+
-See `BACKLOG.md` for the full post-MVP list including:
-- Scope editor on approve
-- Project-tagged scopes with auto-expiry
-- Clawporate portal federation tab
-- QR code pairing
-- `openclaw-enterprise` integration (per-user federation addresses)
+- Ed25519 signing/verification (Phase 2) — unchanged
+- Peer store + approval flow (Phase 1) — unchanged
+- Well-known endpoint (Phase 0) — extended with richer capabilities list
