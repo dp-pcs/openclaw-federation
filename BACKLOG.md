@@ -57,3 +57,94 @@ Ideas captured during development. Don't touch until MVP is working end-to-end.
   - **Send** — test panel: pick a peer, pick an intent, send a message, see reply
 - Rationale: OGP is protocol-level, not platform-level — it belongs in the core UI alongside Channels, Agents, Crons
 - Note: Clawporate *may* later add an enterprise-level federation view (cross-user peering visibility) but that is separate from this
+
+## Agentic Negotiation (High Priority — Phase 4)
+
+### The Core Idea
+OGP currently uses deterministic handlers (command execution). The next evolution is
+**agentic intent handlers** — where the receiving gateway's AI agent evaluates the
+request with context and judgment, not just rules.
+
+### Three Levels of Autonomy
+
+| Level | Trigger | Handler | Example |
+|---|---|---|---|
+| Auto-approve | Within policy | Command handler | Meeting in 9am-11:30am window → book it |
+| Agent-negotiated | Outside policy, agent can reason | Agent handler | Meeting at 1pm, agent evaluates context |
+| Human-escalated | Agent uncertain, stakes too high | Escalate to human | Agent sends Telegram, waits for approval |
+
+### The Calendar Negotiation Example
+
+```
+Stan's agent: calendar-write, 1pm Monday
+  + context: { reason: "Rahul requested this sync", priority: "high" }
+
+David's agent (agent handler):
+  1. Checks policy: 1pm > 11:30am cutoff → normally reject
+  2. Evaluates context: "Rahul" = known trust signal (boss)
+  3. Decision: too important to auto-reject, escalate to David
+  4. Sends Telegram: "Stan wants 1pm Monday. Context: Rahul requested it. Approve? [Yes] [No] [Suggest alternative]"
+  5a. David: "Yes" → booking proceeds
+  5b. David: "No" → rejection sent to Stan's agent
+  5c. David: "Suggest alternative" → agent proposes 11:00am instead
+```
+
+### New Handler Type: `agent`
+
+Add to intent registry alongside `builtin` and `command`:
+
+```json
+{
+  "handlers": {
+    "calendar-write": {
+      "type": "agent",
+      "policy": {
+        "autoApproveWithin": { "start": "09:00", "end": "11:30", "tz": "America/Denver" },
+        "escalateWhen": ["outside_window", "high_priority_context"],
+        "escalateTo": "telegram:8311956999"
+      }
+    }
+  }
+}
+```
+
+### Context Passing in OGP Messages
+
+OGP messages already have a `payload` field. Add optional `context` field:
+
+```json
+{
+  "intent": "calendar-write",
+  "payload": { "slot": "2026-03-23T13:00", "duration": 30 },
+  "context": {
+    "reason": "Rahul requested this sync",
+    "priority": "high",
+    "requestedBy": "rahul.subramaniam@trilogy.com"
+  }
+}
+```
+
+The receiving agent reads both payload and context when deciding how to handle.
+
+### Why This Matters
+- Current OGP: gateway as a secure API
+- With agentic handlers: gateway as an intelligent delegate
+- The agent knows your preferences, can reason about exceptions, knows when to escalate
+- This is what makes it genuinely different from just building an API — the agent applies judgment
+- Human stays in the loop on ambiguous cases, not every case
+
+### Trust Signals
+Agents should have a way to recognize trust signals in context:
+- Known contacts (Rahul = boss, Stan = trusted peer)
+- Priority levels
+- Organizational context
+- Previous patterns ("David always makes exceptions for Rahul")
+
+This is where MEMORY comes in — the agent's memory of past decisions informs future judgment.
+
+### Implementation Notes
+- Agent handler type fires a mini agent turn with the intent + context as input
+- Agent has access to: policy config, peer record, message context, user memory
+- Agent outputs: approve/reject/escalate/counter-propose
+- Escalation fires a Telegram message with action buttons
+- Timeout on escalation (e.g. 1 hour) → auto-reject if no response
