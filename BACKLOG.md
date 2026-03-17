@@ -45,3 +45,15 @@ Ideas captured during development. Don't touch until MVP is working end-to-end.
 - **Meeting scheduler** — David's agent proposes slots, Stan's agent checks his calendar, responds with availability, both calendars get updated
 - **Project status request** — ask a peer's agent for a summary of a shared GitHub repo
 - **Shared task handoff** — assign a task to a peer's agent and get notified on completion
+
+## OGP Control UI (OpenClaw Dashboard)
+- Add "Federation" section to OpenClaw Control UI (`ui/` in openclaw repo, `feature/federation` branch)
+- This is a core gateway feature — not Clawporate-specific
+- Anyone running OpenClaw gets it in their gateway dashboard
+- Sections:
+  - **Peers** — list approved/pending peers, status, last activity, revoke button
+  - **Intents** — list registered handlers, add/remove via UI
+  - **Activity** — recent federated messages sent/received per peer
+  - **Send** — test panel: pick a peer, pick an intent, send a message, see reply
+- Rationale: OGP is protocol-level, not platform-level — it belongs in the core UI alongside Channels, Agents, Crons
+- Note: Clawporate *may* later add an enterprise-level federation view (cross-user peering visibility) but that is separate from this
