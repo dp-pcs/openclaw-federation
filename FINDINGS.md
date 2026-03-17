@@ -157,3 +157,47 @@
 - AGP also conflicts with "Accelerated Graphics Port" (Intel, 1996)
 - OGP is clean in the AI/gateway space
 - "Also: Original Gangster Protocol" — stays in the docs forever
+
+---
+
+## Phase 3A — Intent Handler Registry (continued)
+
+### What worked
+- `federation register-intent <intent> --command <cmd>` writes to `ogp-intent-registry.json` ✅
+- `/.well-known/ogp` now reads registry dynamically on every request — capabilities update without restart ✅
+- Command dispatch with `{param}` substitution working ✅
+- `federation intents` CLI lists registered handlers ✅
+
+### Bug fixed
+- Well-known endpoint served static startup-cached card → capabilities never updated after registering intents
+- **Fix:** Handler reloads registry on each request; removed `max-age=3600` cache header
+- **Lesson:** Any capability that changes at runtime must be read dynamically, not cached at startup
+
+---
+
+## Calendar Demo Design Decisions
+
+### Decision: Stan's gateway initiates the meeting invite, not David's
+**Why:** In real life, the person requesting the meeting sends the invite. David is the attendee, not the organizer. If David's gateway created the event and invited Stan, that's backwards — David would be hosting a meeting Stan asked for.
+**Result:** `calendar-write` executes on the requesting gateway (Stan/Alex), with David's email as attendee.
+
+### Decision: David's gateway is the calendar authority for availability only
+**Why:** David's gateway checks *his* calendar and returns available slots. That's all it does for calendar-read. It doesn't create anything.
+**Result:** Clean separation — read happens at David's gateway, write happens at Stan's gateway.
+
+### Decision: Email address goes in the federation card
+**Why:** When Stan's gateway creates a calendar event and needs to invite David, it needs David's email. Without it, the agent would have to ask the user or guess. Since the federation card is the authoritative identity document for a gateway, email belongs there.
+**Result:** `FederationCard` gets an `email` field. When Stan approves David as a peer, he stores David's email from David's card. `calendar-write` pulls `peer.email` for the attendee list automatically — no extra payload coordination needed.
+**Alternative considered:** Pass email in the `calendar-write` payload each time. Rejected because it requires the sender to already know the email, defeating the purpose of the card.
+
+### Decision: Gateway A = Google Calendar (david.proctor@trilogy.com), Gateway B = Apple Calendar (david@theproctors.cloud)
+**Why:** These are David's two real calendar setups. Using real data makes the demo authentic. The fact that they use different calendar systems (Google vs Apple) is the whole point — OGP abstracts the implementation, both gateways speak `calendar-read`.
+**Result:** Gateway A uses `gws calendar freebusy` (gog CLI). Gateway B uses `icalbuddy` (macOS CLI) for read and AppleScript for write.
+
+### Decision: Meeting preference windows enforced server-side (receiving gateway)
+**Why:** David doesn't want to expose his full calendar to Stan's gateway — just the slots within his configured window. Enforcing on the receiving side means David's privacy preferences are always respected regardless of what the requester asks for.
+**Result:** David's gateway config: `acceptMeetingsWindow: { start: "09:00", end: "11:30", tz: "America/Denver" }`. Even if Stan asks for 8am-5pm, David's gateway only returns slots in 9am-11:30am.
+**BGP analogy:** Route filtering — you only advertise the routes you choose to share.
+
+### Decision: Stan (demo persona renamed to "Alex" for clean recording)
+**Why:** Stan is David's real coworker. Using him in a recorded demo creates ambiguity about whether real calendar data is involved. "Alex" is clearly fictional.
