@@ -201,3 +201,24 @@
 
 ### Decision: Stan (demo persona renamed to "Alex" for clean recording)
 **Why:** Stan is David's real coworker. Using him in a recorded demo creates ambiguity about whether real calendar data is involved. "Alex" is clearly fictional.
+
+## Phase 3C — Calendar-Read Working (2026-03-17)
+
+### Root cause of 30s timeout
+CLI poll loop: `if (pollData.reply !== undefined)` — returned `{"reply": null}` when not yet ready.
+`null !== undefined` = true → broke loop immediately treating null as a valid reply.
+**Fix:** `if (pollData.reply !== undefined && pollData.reply !== null)`
+**Commit:** `f962c27c7`
+
+### What's now proven working
+- Gateway B sends signed calendar-read to Gateway A
+- Gateway A verifies signature, checks scope, runs gwa-calendar-read.sh
+- gwa-calendar-read.sh calls gws calendar freeBusy → parses results → returns available slots JSON
+- Gateway A POSTs result back to Gateway B's replyTo URL
+- CLI polls and receives the slots
+
+### Calendar-read output (Monday March 23, 9am-11:30am window)
+5 available 30-min slots: 9:00, 9:30, 10:00, 10:30, 11:00
+
+### Next
+calendar-write: Alex's gateway creates event + invites David via Apple Calendar/AppleScript
