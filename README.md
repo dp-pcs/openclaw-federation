@@ -14,9 +14,9 @@ OGP is a vendor-neutral federation protocol that lets two AI gateway systems, ow
 |---|---|
 | `PROTOCOL.md` | Full protocol specification — identity, handshake, intent format, signature scheme |
 | `DESIGN.md` | Architecture decisions and rationale |
-| `docs/ogp-ux-design.md` | UX design for the agentic approval flow (one-way vs two-way trust, doorman model, pending intent state) |
+| `FINDINGS.md` | Development journal — lessons learned, bugs found and fixed, design decisions |
+| `PHASE3.md` | Phase 3 spec — intent taxonomy, handler registry, rate limiting, calendar demo |
 | `scripts/` | Reference shell scripts for calendar-read/write intents (Google Calendar + Apple Calendar) |
-| `skills/` | OpenClaw skill files for OGP and ogp-expose |
 | `BACKLOG.md` | Known gaps and planned work |
 
 ---
@@ -64,4 +64,5 @@ Known gaps are tracked in `BACKLOG.md`. Active development is in [dp-pcs/ogp](ht
 ## Related
 
 - [dp-pcs/ogp](https://github.com/dp-pcs/ogp) — standalone OGP daemon, installable alongside any OpenClaw gateway
-- [OpenClaw](https://github.com/clawdbot/clawdbot) — the AI gateway platform that inspired and ships the reference implementation
+- [dp-pcs/openclaw](https://github.com/dp-pcs/openclaw) — OpenClaw gateway platform; integrated OGP implementation on `feature/federation` branch
+- [OpenClaw](https://openclaw.ai) — the AI gateway platform that inspired and ships the reference implementation

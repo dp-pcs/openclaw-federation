@@ -1,11 +1,8 @@
 # OGP Phase 1 Demo — Trust Establishment
 
-**Date:** 2026-03-16  
-**Status:** ✅ Proven working  
+**Date:** 2026-03-16
+**Status:** ✅ Proven working
 **Commit:** `9565b3cc7` on `feature/federation` (dp-pcs/openclaw)
-
-> NOTE: Clean re-recording pending — original capture had transparency window bleed-through.
-> The sequence below is the exact command sequence that produced working output.
 
 ---
 

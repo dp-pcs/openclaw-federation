@@ -183,11 +183,13 @@ David's gateway               Stan's gateway
 |---|---|---|
 | 0 | Keypair generation + `/.well-known/ogp` endpoint | ✅ Complete |
 | 1 | Handshake, peer store, federation CLI | ✅ Complete |
-| 2 | Signed message passing + async reply | 🔄 Next |
-| 3 | Rate limiting + abuse prevention | ⬜ Planned |
+| 2 | Signed message passing + async reply | ✅ Complete |
+| 3A | Intent handler registry + real calendar intents | ✅ Complete |
+| 3B | Rate limiting + abuse prevention | ⬜ Planned |
 | 4 | Portal UI + natural language commands | ⬜ Planned |
 
-**Reference implementation:** OpenClaw (`feature/federation` branch on [dp-pcs/openclaw](https://github.com/dp-pcs/openclaw))
+**Standalone package:** [dp-pcs/ogp](https://github.com/dp-pcs/ogp) — installable OGP daemon for any OpenClaw gateway
+**Integrated implementation:** OpenClaw (`feature/federation` branch on [dp-pcs/openclaw](https://github.com/dp-pcs/openclaw))
 **Design repo:** [dp-pcs/openclaw-federation](https://github.com/dp-pcs/openclaw-federation)
 
 ---

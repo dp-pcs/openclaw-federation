@@ -101,7 +101,7 @@ Add to intent registry alongside `builtin` and `command`:
       "policy": {
         "autoApproveWithin": { "start": "09:00", "end": "11:30", "tz": "America/Denver" },
         "escalateWhen": ["outside_window", "high_priority_context"],
-        "escalateTo": "telegram:8311956999"
+        "escalateTo": "telegram:<your-telegram-id>"
       }
     }
   }

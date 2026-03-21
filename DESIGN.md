@@ -2,7 +2,7 @@
 
 ## Discoverability
 URL-based, no central registry. Gateway address = subdomain URL.
-Published at: GET /.well-known/openclaw-federation
+Published at: GET /.well-known/ogp
 
 ## Federation Card Schema
 {
@@ -29,7 +29,7 @@ Unilateral request + human approval (both sides get notified)
 }
 
 ## Endpoints
-- GET  /.well-known/openclaw-federation  → federation card (unauthenticated)
+- GET  /.well-known/ogp                  → federation card (unauthenticated)
 - POST /federation/request               → send handshake request (unauthenticated knock)
 - POST /federation/message               → deliver federated message (signed)
 - GET  /federation/peers                 → list my federation peers (authenticated, gateway owner only)
