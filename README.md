@@ -1,0 +1,67 @@
+# openclaw-federation
+
+Protocol design, documentation, and reference scripts for **OGP — the Open Gateway Protocol**.
+
+OGP is a vendor-neutral federation protocol that lets two AI gateway systems, owned by different people or organizations, exchange structured agent messages with explicit trust, scoped permissions, and controlled information boundaries — without either party acting as a relay or sharing credentials.
+
+> The standalone implementation lives at [dp-pcs/ogp](https://github.com/dp-pcs/ogp).
+
+---
+
+## What's In This Repo
+
+| Path | Contents |
+|---|---|
+| `PROTOCOL.md` | Full protocol specification — identity, handshake, intent format, signature scheme |
+| `DESIGN.md` | Architecture decisions and rationale |
+| `docs/ogp-ux-design.md` | UX design for the agentic approval flow (one-way vs two-way trust, doorman model, pending intent state) |
+| `scripts/` | Reference shell scripts for calendar-read/write intents (Google Calendar + Apple Calendar) |
+| `skills/` | OpenClaw skill files for OGP and ogp-expose |
+| `BACKLOG.md` | Known gaps and planned work |
+
+---
+
+## The Short Version
+
+Every OGP gateway publishes a federation card at `/.well-known/ogp` — a signed JSON document containing the gateway's public key, display name, and supported capabilities.
+
+To federate, Gateway A sends a signed request to Gateway B. A human on Gateway B's side approves (choosing one-way or two-way trust). Both sides store each other's public keys. Every subsequent intent message is signed by the sender and verified by the receiver.
+
+The gateway is the trust boundary. Agents never leave their own gateway. The gateway controls what crosses organizational lines.
+
+---
+
+## How OGP Relates to A2A
+
+A2A (Google's Agent-to-Agent protocol) handles agent-to-agent conversation semantics — structured requests, typed responses, task delegation between agents inside enterprise platforms.
+
+OGP operates at a lower layer. It federates the gateways that agents sit behind. Without OGP, your agents stay inside your gateway. With OGP, gateways establish bilateral trust and agents can coordinate across that trust boundary.
+
+They're sequential, not competing. OGP is the handshake. A2A is the conversation.
+
+---
+
+## Protocol Basics
+
+**Cryptographic identity:** Ed25519 keypairs generated per gateway on first boot. Public key published at `/.well-known/ogp`.
+
+**Trust establishment:** Bilateral approval required. Both sides must agree. Either side can revoke.
+
+**Intent messages:** Named, typed operations (`calendar-read`, `message`, `task-create`). Signed by sender, verified by receiver. Scope enforced at the receiving gateway.
+
+**Information boundaries:** The receiving gateway decides what reaches its agent. A peer approved for `calendar-read` cannot invoke `message`. The doorman layer (in progress) will enforce rate limits and normalize responses before anything reaches the main agent.
+
+---
+
+## Status
+
+The protocol is implemented and working. The reference implementation (`@dp-pcs/ogp`) has been tested across two independent gateways between the US and Spain.
+
+Known gaps are tracked in `BACKLOG.md`. Active development is in [dp-pcs/ogp](https://github.com/dp-pcs/ogp).
+
+---
+
+## Related
+
+- [dp-pcs/ogp](https://github.com/dp-pcs/ogp) — standalone OGP daemon, installable alongside any OpenClaw gateway
+- [OpenClaw](https://github.com/clawdbot/clawdbot) — the AI gateway platform that inspired and ships the reference implementation
