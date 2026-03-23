@@ -12,7 +12,8 @@ OGP is a vendor-neutral federation protocol that lets two AI gateway systems, ow
 
 | Path | Contents |
 |---|---|
-| `PROTOCOL.md` | Full protocol specification — identity, handshake, intent format, signature scheme |
+| `PROTOCOL.md` | Full protocol specification — identity, handshake, intent format, signature scheme, scope negotiation |
+| `INTENTS.md` | Standard intents specification (message, task-request, status-update, agent-comms) |
 | `DESIGN.md` | Architecture decisions and rationale |
 | `FINDINGS.md` | Development journal — lessons learned, bugs found and fixed, design decisions |
 | `PHASE3.md` | Phase 3 spec — intent taxonomy, handler registry, rate limiting, calendar demo |
@@ -47,15 +48,26 @@ They're sequential, not competing. OGP is the handshake. A2A is the conversation
 
 **Trust establishment:** Bilateral approval required. Both sides must agree. Either side can revoke.
 
-**Intent messages:** Named, typed operations (`calendar-read`, `message`, `task-create`). Signed by sender, verified by receiver. Scope enforced at the receiving gateway.
+**Scope negotiation (v0.2.0):** Per-peer scope grants control which intents each peer can access, with rate limits and topic restrictions. Three-layer model: capabilities → negotiation → runtime enforcement.
 
-**Information boundaries:** The receiving gateway decides what reaches its agent. A peer approved for `calendar-read` cannot invoke `message`. The doorman layer (in progress) will enforce rate limits and normalize responses before anything reaches the main agent.
+**Intent messages:** Named, typed operations (`message`, `task-request`, `agent-comms`). Signed by sender, verified by receiver. Scope enforced by the doorman at the receiving gateway.
+
+**Information boundaries:** The receiving gateway decides what reaches its agent. The doorman layer enforces rate limits and rejects out-of-scope requests before anything reaches the main agent.
 
 ---
 
 ## Status
 
+**Current version:** v0.2.0 (March 2026)
+
 The protocol is implemented and working. The reference implementation (`@dp-pcs/ogp`) has been tested across two independent gateways between the US and Spain.
+
+**v0.2.0 features:**
+- Scope negotiation with per-peer intent grants
+- Rate limiting (sliding window, per-peer per-intent)
+- Topic restrictions for agent-comms
+- Async reply mechanism (callback + polling)
+- Backward compatibility with v0.1 peers
 
 Known gaps are tracked in `BACKLOG.md`. Active development is in [dp-pcs/ogp](https://github.com/dp-pcs/ogp).
 

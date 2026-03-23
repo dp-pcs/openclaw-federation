@@ -1,15 +1,18 @@
 # OGP Backlog — Post-MVP Enhancements
 
-Ideas captured during development. Don't touch until MVP is working end-to-end.
+Ideas captured during development.
+
+**Last updated:** 2026-03-23 (v0.2.0 release)
 
 ---
 
 ## Handshake / Trust
 
-- **Scope editor on accept** — when receiving a federation request, allow the receiving party to counter-propose a narrower scope before accepting (currently: accept locks in requester's proposed scope)
-- **Scope renegotiation** — allow either party to modify scope on an existing relationship without full re-handshake
-- **Multi-scope tiers** — separate scopes per intent category (e.g. "calendar: read-only" vs "calendar: read-write") rather than a flat list
-- **Time-limited federation** — set expiry at approval time (e.g. "Stan gets access for 30 days, then auto-expires")
+- ✅ **Scope grants on approval** — approve with specific intents, rate limits, and topic restrictions (v0.2.0)
+- ✅ **Scope renegotiation** — `ogp federation grant` updates scopes without re-handshake (v0.2.0)
+- ✅ **Multi-scope tiers** — separate rate limits and topics per intent (v0.2.0)
+- ✅ **Time-limited federation** — `expiresAt` field in scope grants (v0.2.0)
+- **Scope editor on accept** — UI for counter-proposing narrower scope before accepting
 - **Project-tagged scopes** — tie scope to a project tag; revoking the project revokes all associated scope automatically
 
 ## Discovery
@@ -20,11 +23,12 @@ Ideas captured during development. Don't touch until MVP is working end-to-end.
 
 ## Security / Abuse Prevention
 
-- **Per-peer token bucket rate limiting** — cap requests per hour per peer independently of global policy
+- ✅ **Per-peer rate limiting** — sliding window rate limiting per peer per intent (v0.2.0)
+- ✅ **Scope intent whitelist** — federated messages checked against granted scope; reject if not allowed (v0.2.0)
+- ✅ **Topic restrictions** — agent-comms messages checked against allowed topics (v0.2.0)
 - **Cost estimation gate** — estimate LLM token cost before executing federated request; reject if over threshold
 - **Abuse detection** — auto-pause peer if they send 3x their normal rate in a 10-minute window; alert owner
 - **Concurrent request cap** — max N federated requests executing simultaneously per peer
-- **Scope intent whitelist** — federated messages must declare intent upfront; hard-reject anything not on approved list before any LLM call
 
 ## UX / Notifications
 
@@ -35,9 +39,10 @@ Ideas captured during development. Don't touch until MVP is working end-to-end.
 
 ## Protocol
 
+- ✅ **Async reply pattern** — replyTo callback + polling fallback for async responses (v0.2.0)
+- ✅ **Capability matching** — federation card includes capabilities.intents for discovery (v0.2.0)
+- ✅ **Protocol version detection** — automatic v0.1 vs v0.2 detection with backward compatibility (v0.2.0)
 - **OGP version negotiation** — gateways on different OGP versions negotiate down to lowest common supported version
-- **Capability matching** — before sending a request, check if the target gateway's capabilities include what you need
-- **Async reply pattern** — structured replyTo callback for long-running federated tasks (currently Phase 2)
 - **Message receipts** — acknowledgement that a federated message was received and queued (not just HTTP 200)
 
 ## Real-world Use Cases (to build demos around)
