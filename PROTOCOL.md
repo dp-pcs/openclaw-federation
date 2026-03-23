@@ -250,6 +250,96 @@ POST /federation/approve
 
 ---
 
+## Response Policies (v0.2.0)
+
+Response policies control HOW the receiving agent responds to allowed messages (separate from scope grants which control WHETHER messages are allowed).
+
+### Response Levels
+
+| Level | Behavior |
+|---|---|
+| `full` | Respond openly, share details |
+| `summary` | High-level responses only, no specifics |
+| `escalate` | Ask human before responding |
+| `deny` | Politely decline to discuss |
+
+### Policy Schema
+
+Per-peer policies stored in `peers.json`:
+
+```json
+{
+  "id": "stan:18790",
+  "displayName": "Stanislav",
+  "responsePolicy": {
+    "memory-management": {
+      "level": "full",
+      "notes": "Trusted collaborator"
+    },
+    "calendar": {
+      "level": "escalate",
+      "notes": "Ask before sharing schedule"
+    }
+  }
+}
+```
+
+Global defaults in `config.json`:
+
+```json
+{
+  "agentComms": {
+    "globalPolicy": {
+      "general": { "level": "summary" },
+      "testing": { "level": "full" }
+    },
+    "defaultLevel": "summary",
+    "activityLog": true
+  }
+}
+```
+
+### Policy Inheritance
+
+Priority order (highest to lowest):
+1. Peer-specific topic policy
+2. Global topic policy
+3. Default level
+
+### Integration with Agent
+
+When an `agent-comms` message arrives, the notification to the receiving agent includes the response policy:
+
+```json
+{
+  "text": "[OGP Agent-Comms] Stanislav → memory-management [FULL]: How do you persist context?",
+  "metadata": {
+    "ogp": {
+      "from": "stan:18790",
+      "topic": "memory-management",
+      "message": "How do you persist context?",
+      "responsePolicy": {
+        "level": "full",
+        "notes": "Trusted collaborator"
+      }
+    }
+  }
+}
+```
+
+The agent reads the policy level and responds accordingly.
+
+### Activity Logging
+
+All agent-comms interactions can be logged to `~/.ogp/activity.log`:
+
+```
+2026-03-23T11:52:14Z [IN]  Stanislav → testing: Hello from Stan!
+2026-03-23T11:52:15Z [OUT] → Stanislav: Hi Stan! Test received.
+```
+
+---
+
 ## Security Model
 
 | Threat | Mitigation |
