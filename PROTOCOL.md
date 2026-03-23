@@ -164,6 +164,92 @@ David's gateway               Stan's gateway
 
 ---
 
+## Scope Negotiation (v0.2.0)
+
+OGP v0.2.0 introduces a three-layer scope model for per-peer access control:
+
+```
+Layer 1: Gateway Capabilities  → What I CAN support (advertised globally)
+Layer 2: Peer Negotiation      → What I WILL grant YOU (per-peer, during approval)
+Layer 3: Runtime Enforcement   → Is THIS request within YOUR granted scope (doorman)
+```
+
+### ScopeBundle Schema
+
+```json
+{
+  "version": "0.2.0",
+  "grantedAt": "2026-03-23T10:30:00Z",
+  "scopes": [
+    {
+      "intent": "agent-comms",
+      "enabled": true,
+      "rateLimit": { "requests": 100, "windowSeconds": 3600 },
+      "topics": ["memory-management", "task-delegation"],
+      "expiresAt": "2026-06-23T10:30:00Z"
+    }
+  ]
+}
+```
+
+### Extended Federation Card (v0.2.0)
+
+```json
+{
+  "version": "0.2.0",
+  "displayName": "David's Gateway",
+  "email": "david@example.com",
+  "gatewayUrl": "https://david.example.com",
+  "publicKey": "302a300506...",
+  "capabilities": {
+    "intents": ["message", "task-request", "status-update", "agent-comms"],
+    "features": ["scope-negotiation", "reply-callback"]
+  },
+  "endpoints": {
+    "request": "https://david.example.com/federation/request",
+    "approve": "https://david.example.com/federation/approve",
+    "message": "https://david.example.com/federation/message",
+    "reply": "https://david.example.com/federation/reply/:nonce"
+  }
+}
+```
+
+### Approval with Scope Grants
+
+When approving a federation request, the approving gateway can include scope grants:
+
+```json
+POST /federation/approve
+{
+  "peerId": "stan:18790",
+  "approved": true,
+  "protocolVersion": "0.2.0",
+  "scopeGrants": {
+    "version": "0.2.0",
+    "grantedAt": "2026-03-23T10:30:00Z",
+    "scopes": [
+      {
+        "intent": "agent-comms",
+        "enabled": true,
+        "rateLimit": { "requests": 10, "windowSeconds": 60 },
+        "topics": ["memory-management"]
+      }
+    ]
+  }
+}
+```
+
+### Backward Compatibility
+
+| Scenario | Behavior |
+|---|---|
+| v0.2 gateway approves v0.1 peer | No `scopeGrants` sent, default rate limits (100/hour) apply |
+| v0.1 peer sends to v0.2 gateway | Allowed with default rate limits, logged as v0.1 access |
+| v0.2 peer missing scope for intent | 403 Forbidden: "Intent 'X' not in granted scope" |
+| v0.2 peer exceeds rate limit | 429 Too Many Requests with `Retry-After` header |
+
+---
+
 ## Security Model
 
 | Threat | Mitigation |
@@ -171,9 +257,10 @@ David's gateway               Stan's gateway
 | Forged messages | Ed25519 signature on every message — private key never leaves gateway |
 | Replay attacks | Nonce deduplication (24h window) + timestamp skew check (±5 min) |
 | Scope creep | Per-peer intent whitelist — unlisted intent rejected before any LLM call |
-| Token cost abuse | Per-peer rate limiting (token bucket) + global policy cap |
+| Token cost abuse | Per-peer rate limiting (sliding window) + global policy cap |
 | DDoS | Concurrent request cap per peer + spike detection → auto-pause |
 | Unauthorized access | Peer management endpoints require gateway auth token |
+| Topic abuse | Topic restrictions for agent-comms — only allowed topics accepted |
 
 ---
 
@@ -183,11 +270,11 @@ David's gateway               Stan's gateway
 |---|---|---|
 | 0 | Keypair generation + `/.well-known/ogp` endpoint | ✅ Complete |
 | 1 | Handshake, peer store, federation CLI | ✅ Complete |
-| 2 | Signed message passing + async reply | 🔄 Next |
-| 3 | Rate limiting + abuse prevention | ⬜ Planned |
-| 4 | Portal UI + natural language commands | ⬜ Planned |
+| 2 | Signed message passing + async reply | ✅ Complete |
+| 3 | Scope negotiation + rate limiting (v0.2.0) | ✅ Complete |
+| 4 | Agentic negotiation + Portal UI | 🔄 Next |
 
-**Reference implementation:** OpenClaw (`feature/federation` branch on [dp-pcs/openclaw](https://github.com/dp-pcs/openclaw))
+**Reference implementation:** [dp-pcs/ogp](https://github.com/dp-pcs/ogp) (v0.2.0)
 **Design repo:** [dp-pcs/openclaw-federation](https://github.com/dp-pcs/openclaw-federation)
 
 ---
