@@ -174,5 +174,53 @@ The real estate eval story is the lede. The "before you start" hook is the wow m
 
 ---
 
-*Last updated: 2026-03-23*
+---
+
+## Implementation Updates (v0.2.9)
+
+### Entry Types vs Topics
+
+The CLI now uses "entry type" terminology instead of "topic" to reduce confusion with agent-comms topics:
+
+```bash
+# CLI uses --type flag (--topic is hidden alias for backwards compat)
+ogp project contribute instacrew-collab decision "Using Attom for valuations"
+ogp project query instacrew-collab --type progress
+
+# Wire format still uses topic field for backwards compatibility
+{ "projectId": "instacrew-collab", "topic": "decision", "summary": "..." }
+```
+
+### Auto-Registration as Agent-Comms Topics
+
+When you create a project, its ID is automatically registered as an agent-comms topic for all approved peers at `summary` level. This means project members can immediately send agent-comms messages scoped to the project without manual topic configuration:
+
+```bash
+# Creating a project auto-registers it as agent-comms topic
+ogp project create instacrew-collab "InstaCrew Collaboration"
+# → Registers 'instacrew-collab' as topic for all approved peers
+
+# Peers can immediately send project-scoped messages
+ogp federation agent stan:18790 instacrew-collab "Any updates on valuation tool?"
+```
+
+Similarly, when approving a new peer, all existing local projects are auto-registered as topics for that peer.
+
+### Default-Deny for Unknown Topics
+
+With `off` as a valid response level, you can implement default-deny and only whitelist specific project topics:
+
+```bash
+# Set default to deny all unknown topics
+ogp agent-comms default off
+
+# Explicitly allow your project topics
+ogp agent-comms configure --global --topics "instacrew-collab,personal-tools" --level summary
+```
+
+Unknown project topics will receive a cryptographically signed rejection response rather than being silently dropped.
+
+---
+
+*Last updated: 2026-03-26*
 *Captured from conversation with David Proctor*

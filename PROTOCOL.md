@@ -250,7 +250,7 @@ POST /federation/approve
 
 ---
 
-## Response Policies (v0.2.0)
+## Response Policies (v0.2.0+)
 
 Response policies control HOW the receiving agent responds to allowed messages (separate from scope grants which control WHETHER messages are allowed).
 
@@ -262,6 +262,22 @@ Response policies control HOW the receiving agent responds to allowed messages (
 | `summary` | High-level responses only, no specifics |
 | `escalate` | Ask human before responding |
 | `deny` | Politely decline to discuss |
+| `off` | Default-deny: send signed rejection, do not process (v0.2.9+) |
+
+### Default-Deny Mode (v0.2.9+)
+
+Setting the default response level to `off` enables a security-first posture. When a topic hits `off` (either explicitly configured or via the default level), the daemon sends a cryptographically signed rejection response instead of silently dropping the message:
+
+```json
+{
+  "status": "rejected",
+  "reason": "topic-not-permitted",
+  "topic": "unknown-topic",
+  "signature": "ed25519:base64..."
+}
+```
+
+This allows senders to distinguish between "message dropped" and "message explicitly rejected" — useful for debugging and security auditing.
 
 ### Policy Schema
 
@@ -362,10 +378,11 @@ All agent-comms interactions can be logged to `~/.ogp/activity.log`:
 | 1 | Handshake, peer store, federation CLI | ✅ Complete |
 | 2 | Signed message passing + async reply | ✅ Complete |
 | 3 | Scope negotiation + rate limiting (v0.2.0) | ✅ Complete |
+| 3.1 | Project intent + entry types (v0.2.3) | ✅ Complete |
+| 3.2 | Default-deny + auto-registration (v0.2.9) | ✅ Complete |
 | 4 | Agentic negotiation + Portal UI | 🔄 Next |
 
-**Reference implementation:** [dp-pcs/ogp](https://github.com/dp-pcs/ogp) (v0.2.0)
-**Design repo:** [dp-pcs/openclaw-federation](https://github.com/dp-pcs/openclaw-federation)
+**Reference implementation:** [dp-pcs/ogp](https://github.com/dp-pcs/ogp) (v0.2.9)
 **Design repo:** [dp-pcs/openclaw-federation](https://github.com/dp-pcs/openclaw-federation)
 
 ---

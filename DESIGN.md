@@ -47,3 +47,45 @@ Unilateral request + human approval (both sides get notified)
 - Default: permanent until revoked
 - Optional: expiry date set at approval time
 - Either side can revoke instantly
+
+## Project Topic Auto-Registration (v0.2.9+)
+
+When a project is created, its ID is automatically registered as an agent-comms topic for all approved peers at `summary` level. This enables project-scoped agent communication without manual topic configuration.
+
+When a new peer is approved, all existing local projects are auto-registered as agent-comms topics for that peer.
+
+```
+1. ogp project create my-app "My App"
+   → Registers 'my-app' as topic for all approved peers
+
+2. ogp federation approve alice --intents agent-comms
+   → Registers all local project IDs as topics for alice
+```
+
+## Entry Types (v0.2.9+)
+
+Project contributions use "entry types" rather than "topics" in the CLI. The wire format field remains `topic` for backwards compatibility.
+
+```bash
+# CLI uses --type flag (--topic is hidden alias)
+ogp project contribute my-app decision "Using PostgreSQL for persistence"
+ogp project query my-app --type progress
+
+# Wire format still uses topic field
+{ "projectId": "my-app", "topic": "decision", "summary": "..." }
+```
+
+## Default-Deny Agent-Comms (v0.2.9+)
+
+The `off` response level enables default-deny security posture. When a message hits `off`, the daemon returns a cryptographically signed rejection:
+
+```json
+{
+  "status": "rejected",
+  "reason": "topic-not-permitted",
+  "topic": "unknown-topic",
+  "signature": "ed25519:..."
+}
+```
+
+This prevents silent drops and provides verifiable proof of rejection.
