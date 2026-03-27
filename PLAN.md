@@ -11,7 +11,7 @@ with explicit trust, scoped permissions, and rate controls — without either pe
 ## Phases
 - [x] Phase 0: Keypair generation + /.well-known/openclaw-federation endpoint
 - [x] Phase 1: Handshake (request / approve / key exchange)
-- [ ] Phase 2: Message passing (signed, validated, scoped)
+- [x] Phase 2: Message passing (signed, validated, scoped)
 - [ ] Phase 3: Rate limiting + abuse prevention
 - [ ] Phase 4: UX + portal integration
 
@@ -89,9 +89,96 @@ Branch: feature/federation on dp-pcs/openclaw (private)
 - All builds passing
 - CLI commands accessible via `openclaw federation <command>`
 
-**Next steps for Phase 2:**
-- Implement message signing with Ed25519 private keys
-- Add message validation using peer public keys
-- Design and implement message envelope schema
-- Add scope validation for message routing
-- Implement message delivery to federated gateways
+### Phase 2 Complete (2026-03-16)
+**Implemented:**
+- Ed25519 message signing and verification using node:crypto
+- Canonical JSON serialization for deterministic signing (sorted keys, recursive)
+- POST `/federation/message` endpoint - public endpoint with signature-based authentication
+- POST `/federation/reply/:nonce` endpoint - public endpoint for async message replies
+- Message validation: peer approval check, scope verification, timestamp validation (±5 minutes), nonce replay prevention, signature verification
+- Intent processing: `ping` (returns gateway status) and `web-search` (DuckDuckGo API)
+- Async reply handling via in-memory reply store
+- CLI command: `openclaw federation send <gatewayId> --intent <intent> --payload <json>`
+- CLI polling for replies with 30-second timeout
+- End-to-end test script: `scripts/test-ogp-phase2.sh`
+
+**Files created:**
+- `src/gateway/federation/federation-message.ts` - Ed25519 signing/verification with canonical JSON
+- `src/gateway/federation/federation-message-handler.ts` - HTTP handlers for /federation/message and /federation/reply/:nonce
+- `scripts/test-ogp-phase2.sh` - E2E test script for ping and web-search intents
+
+**Files modified:**
+- `src/gateway/server-http.ts` - Added federation message and reply endpoints to request pipeline
+- `src/cli/federation-cli.ts` - Added `federation send` command with signing and reply polling
+
+**Integration points:**
+- Message endpoint validates all security properties before processing (peer approved, intent in scope, valid timestamp, no replay, valid signature)
+- Verification payload excludes signature field for Ed25519 verification
+- Reply delivery uses HTTP POST to caller's replyTo URL
+- CLI loads keypair from state directory and signs messages with private key
+- Reply polling uses in-memory store accessible via getReply/clearReply exports
+
+**Security properties:**
+- All messages must be signed with sender's private key
+- Signatures verified against stored peer public key
+- Intent must be in approved scope for the peer
+- Nonce prevents replay attacks (stored per-peer, max 100 recent nonces)
+- Timestamp prevents stale messages (±5 minute window)
+- 202 Accepted returned immediately, processing happens async
+
+**Testing:**
+- No type errors in federation code
+- All builds passing
+- CLI command available via `openclaw federation send`
+- E2E test script validates ping and web-search round-trip
+
+### Phase 3A Complete (2026-03-16)
+**Implemented:**
+- Intent handler registry with configurable handlers per intent
+- Registry file at `{stateDir}/ogp-intent-registry.json` (JSON persistence)
+- Handler types: `builtin`, `command`, `skill` (skill type stub for Phase 3B)
+- Registry-based dispatch replacing hardcoded switch statement in `processIntent()`
+- Command handler type with `{param}` substitution from message payload
+- Default registry includes only `ping` builtin handler
+- ScopeParams enforcement for peer-specific parameter constraints
+- ScopeParams modes: `enforce` (override value), `restrict` (whitelist values), `passthrough` (no constraint)
+- Dynamic federation card capabilities based on real registry contents
+- CLI commands: `openclaw federation intents`, `openclaw federation register-intent <intent> --command <cmd>`, `openclaw federation remove-intent <intent>`
+- Intent registry loaded at gateway startup and passed to federation card builder
+
+**Files created:**
+- `src/gateway/federation/federation-intent-registry.ts` - Registry store with load/save/register/remove operations
+
+**Files modified:**
+- `src/gateway/federation/federation-message-handler.ts` - Registry-based dispatch, scopeParams enforcement
+- `src/gateway/federation/federation-peers.ts` - Added ScopeParamRule and scopeParams field to PeerRecord
+- `src/gateway/federation/federation-card.ts` - Accept optional registry, derive capabilities from real handlers
+- `src/gateway/server-runtime-state.ts` - Load intent registry at startup, pass to federation card builder
+- `src/cli/federation-cli.ts` - Added intent management CLI commands
+
+**Integration points:**
+- Registry loaded from disk on every message (allows dynamic updates without restart)
+- Command execution uses `execSync` with 10s timeout (sandboxed to registry commands only)
+- Command output parsed as JSON if possible, otherwise returned as `{ output: string }`
+- ScopeParams applied server-side before intent processing (sender unaware of enforcement)
+- Federation card now reflects actual gateway capabilities from registry handlers
+
+**Security properties:**
+- Command templates stored in registry, not in message payloads
+- Only registry-defined commands can be executed
+- Payload values substituted into command template placeholders
+- ScopeParams let receiving gateway enforce constraints per peer+intent
+- Registry file written with standard permissions (mkdir recursive)
+
+**Testing:**
+- No type errors in federation code
+- All builds passing
+- CLI commands available via `openclaw federation intents/register-intent/remove-intent`
+
+**Next steps for Phase 3B:**
+- Implement `skill` handler type (delegate to OpenClaw skills)
+- Add intent schema validation (input/output types)
+- Implement custom intent definitions with schema
+- Add per-peer rate limiting based on approved rate hints
+- Add circuit breaker for failing peers
+- Add logging and metrics for federation message traffic

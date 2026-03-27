@@ -58,16 +58,21 @@ They're sequential, not competing. OGP is the handshake. A2A is the conversation
 
 ## Status
 
-**Current version:** v0.2.0 (March 2026)
+**Current version:** v0.2.11 (March 2026)
 
 The protocol is implemented and working. The reference implementation (`@dp-pcs/ogp`) has been tested across two independent gateways between the US and Spain.
 
-**v0.2.0 features:**
+**v0.2.x features:**
 - Scope negotiation with per-peer intent grants
 - Rate limiting (sliding window, per-peer per-intent)
 - Topic restrictions for agent-comms
 - Async reply mechanism (callback + polling)
 - Backward compatibility with v0.1 peers
+- `off` response level for default-deny agent-comms
+- Signed rejection responses
+- Project topic auto-registration on create/approve
+- Entry types vs topics terminology (v0.2.9+)
+- `set-topic`, `set-default`, per-peer default response level (v0.2.10+)
 
 Known gaps are tracked in `BACKLOG.md`. Active development is in [dp-pcs/ogp](https://github.com/dp-pcs/ogp).
 
