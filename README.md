@@ -2,7 +2,7 @@
 
 Protocol design, documentation, and reference scripts for **OGP — the Open Gateway Protocol**.
 
-> 🚧 **Active build — releasing daily.** The protocol is evolving fast alongside the [`@dp-pcs/ogp`](https://github.com/dp-pcs/ogp) implementation. This repo tracks the spec; the implementation ships daily. Follow along or reach out at [@lat3ntg3nius](https://x.com/lat3ntg3nius).
+> 🚧 **Active build — releasing daily.** The protocol is evolving fast alongside the [`@dp-pcs/ogp`](https://github.com/dp-pcs/ogp) implementation. This repo tracks the spec; the implementation ships daily. Follow along at [@lat3ntg3nius](https://x.com/lat3ntg3nius) on X or read the articles behind this build at [Trilogy AI Center of Excellence](https://trilogyai.substack.com).
 
 OGP is a vendor-neutral federation protocol that lets two AI gateway systems, owned by different people or organizations, exchange structured agent messages with explicit trust, scoped permissions, and controlled information boundaries — without either party acting as a relay or sharing credentials.
 
