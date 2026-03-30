@@ -19,6 +19,7 @@ OGP is a vendor-neutral federation protocol that lets two AI gateway systems, ow
 | `DESIGN.md` | Architecture decisions and rationale |
 | `FINDINGS.md` | Development journal — lessons learned, bugs found and fixed, design decisions |
 | `PHASE3.md` | Phase 3 spec — intent taxonomy, handler registry, rate limiting, calendar demo |
+| `RENDEZVOUS.md` | Rendezvous & invite flow spec — zero-config peer discovery (v0.2.14+) |
 | `scripts/` | Reference shell scripts for calendar-read/write intents (Google Calendar + Apple Calendar) |
 | `BACKLOG.md` | Known gaps and planned work |
 
