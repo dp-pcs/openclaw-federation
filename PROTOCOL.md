@@ -49,7 +49,7 @@ OGP borrows its trust and policy model from **BGP (Border Gateway Protocol)** �
 
 | BGP Concept | OGP Equivalent |
 |---|---|
-| Autonomous System (AS) | Individual gateway (`gw:david@trilogy.com`) |
+| Autonomous System (AS) | Individual gateway (identified by public key prefix) |
 | OPEN message | `GET /.well-known/ogp` |
 | BGP session establishment | Handshake → human approval → key exchange |
 | Route policy / filters | Per-peer scope (which intents are allowed) |
@@ -58,6 +58,7 @@ OGP borrows its trust and policy model from **BGP (Border Gateway Protocol)** �
 | iBGP (interior) | Agent-to-agent within one gateway |
 | eBGP (exterior) | OGP — between different people's gateways |
 | BGP WITHDRAW | Federation revocation |
+| AS Path | Peer chain via `from` field in messages |
 
 **What we're NOT borrowing:** multi-hop routing, route tables, path computation, convergence. OGP is strictly point-to-point peering between two gateways. BGP started the same way.
 
@@ -124,23 +125,46 @@ David's gateway               Stan's gateway
 ```
 
 ### Handshake
+
 ```
 David's gateway               Stan's gateway          Stan (human)
      │                              │                      │
      │  POST /ogp/request ─────────►│                      │
      │  { fromGatewayId,            │                      │
      │    fromPublicKey,            │                      │
-     │    proposedScope }           │                      │
+     │    offeredIntents }          │                      │
      │                              │── notification ─────►│
      │                              │  "David wants to     │
      │                              │   federate. Accept?" │
      │                              │                      │
      │                              │◄─ approve ───────────│
      │◄── POST /ogp/approve ────────│                      │
-     │  { publicKey, confirmedScope}│                      │
+     │  { publicKey,                │                      │
+     │    confirmedScope,           │                      │
+     │    mirrorIntents }           │                      │
      │                              │                      │
      │  [relationship active]       │  [relationship active]│
 ```
+
+### Peer Identity (BUILD-111 / v0.2.24+)
+
+Peer identity is **cryptographic**, not network-based. The peer ID is the first 16 characters of the Ed25519 public key (e.g., `302a300506032b65`).
+
+**Why this matters:**
+- Gateway URLs can change (tunnel rotation, load balancer changes, port changes)
+- Public keys never change (unless keypair is regenerated)
+- Peers remain identifiable even when infrastructure changes
+
+**Implementation:**
+```json
+// Peer ID derived from public key
+peerId = publicKey.substring(0, 16)
+
+// Example: 302a300506032b65 = David Proctor
+// Full public key: 302a300506032b6570032100738064beab1ef8eb009d1f62b5e366c7d55e164fb0c30d982ae4f0b6b471911a
+```
+
+**Legacy compatibility:** OGP 0.2.24+ accepts legacy `hostname:port` peer IDs from older gateways and automatically normalizes them to public key prefixes upon first contact.
 
 ### Message Exchange (Phase 2)
 ```
@@ -164,13 +188,13 @@ David's gateway               Stan's gateway
 
 ---
 
-## Scope Negotiation (v0.2.0)
+## Scope Negotiation (v0.2.0+)
 
-OGP v0.2.0 introduces a three-layer scope model for per-peer access control:
+OGP v0.2.0 introduces a three-layer scope model for per-peer access control. v0.2.24 adds **intent negotiation** — symmetric capabilities where approval mirrors the peer's offered intents.
 
 ```
 Layer 1: Gateway Capabilities  → What I CAN support (advertised globally)
-Layer 2: Peer Negotiation      → What I WILL grant YOU (per-peer, during approval)
+Layer 2: Intent Negotiation    → What I WILL grant YOU (mirrored from your offered intents)
 Layer 3: Runtime Enforcement   → Is THIS request within YOUR granted scope (doorman)
 ```
 
@@ -214,30 +238,64 @@ Layer 3: Runtime Enforcement   → Is THIS request within YOUR granted scope (do
 }
 ```
 
-### Approval with Scope Grants
+### Approval with Intent Negotiation (v0.2.24+)
 
-When approving a federation request, the approving gateway can include scope grants:
+When approving a federation request, the approving gateway **automatically mirrors** the intents offered by the requester. This creates symmetric capabilities by default.
 
+**Request includes:**
+```json
+POST /federation/request
+{
+  "peer": {
+    "id": "302a300506032b65",
+    "displayName": "David Proctor",
+    "email": "david@example.com",
+    "gatewayUrl": "https://ogp.sarcastek.com",
+    "publicKey": "302a300506032b6570032100738064beab1ef8eb009d1f62b5e366c7d55e164fb0c30d982ae4f0b6b471911a"
+  },
+  "offeredIntents": ["message", "agent-comms", "project.join", "project.contribute"],
+  "signature": "ed25519:..."
+}
+```
+
+**Approval mirrors those intents:**
 ```json
 POST /federation/approve
 {
-  "peerId": "stan:18790",
+  "peerId": "302a300506032b65",
   "approved": true,
-  "protocolVersion": "0.2.0",
+  "protocolVersion": "0.2.24",
   "scopeGrants": {
     "version": "0.2.0",
     "grantedAt": "2026-03-23T10:30:00Z",
     "scopes": [
       {
+        "intent": "message",
+        "enabled": true,
+        "rateLimit": { "requests": 100, "windowSeconds": 3600 }
+      },
+      {
         "intent": "agent-comms",
         "enabled": true,
-        "rateLimit": { "requests": 10, "windowSeconds": 60 },
-        "topics": ["memory-management"]
+        "rateLimit": { "requests": 100, "windowSeconds": 3600 },
+        "topics": ["general", "testing"]
+      },
+      {
+        "intent": "project.join",
+        "enabled": true,
+        "rateLimit": { "requests": 100, "windowSeconds": 3600 }
+      },
+      {
+        "intent": "project.contribute",
+        "enabled": true,
+        "rateLimit": { "requests": 100, "windowSeconds": 3600 }
       }
     ]
   }
 }
 ```
+
+**Result:** Both sides can call the same intents on each other — symmetric federation by default. Override with `--intents` if asymmetric capabilities are desired.
 
 ### Backward Compatibility
 
@@ -380,9 +438,10 @@ All agent-comms interactions can be logged to `~/.ogp/activity.log`:
 | 3 | Scope negotiation + rate limiting (v0.2.0) | ✅ Complete |
 | 3.1 | Project intent + entry types (v0.2.3) | ✅ Complete |
 | 3.2 | Default-deny + auto-registration (v0.2.9) | ✅ Complete |
+| 3.3 | Intent negotiation + port-agnostic identity (v0.2.24) | ✅ Complete |
 | 4 | Agentic negotiation + Portal UI | 🔄 Next |
 
-**Reference implementation:** [dp-pcs/ogp](https://github.com/dp-pcs/ogp) (v0.2.9)
+**Reference implementation:** [dp-pcs/ogp](https://github.com/dp-pcs/ogp) (v0.2.24)
 **Design repo:** [dp-pcs/openclaw-federation](https://github.com/dp-pcs/openclaw-federation)
 
 ---
