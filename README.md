@@ -1,88 +1,56 @@
-# openclaw-federation
+# openclaw-federation (archived)
 
-Protocol design, documentation, and reference scripts for **OGP — the Open Gateway Protocol**.
+> **This repository is a historical snapshot.** OGP's canonical specification, implementation, and active development have moved to [**dp-pcs/ogp**](https://github.com/dp-pcs/ogp).
+>
+> The protocol has evolved substantially since this repo's last update (April 2026, v0.2.11). For current behavior — including identity snapshots, bidirectional health exchange, the federation lifecycle state machine, the multi-framework meta-config, and the keychain operator helpers — read the live docs in the `ogp` repo, not this one.
 
-> 🚧 **Active build — releasing daily.** The protocol is evolving fast alongside the [`@dp-pcs/ogp`](https://github.com/dp-pcs/ogp) implementation. This repo tracks the spec; the implementation ships daily. Follow along at [@lat3ntg3nius](https://x.com/lat3ntg3nius) on X or read the articles behind this build at [Trilogy AI Center of Excellence](https://trilogyai.substack.com).
+## Where to find current docs
 
-OGP is a vendor-neutral federation protocol that lets two AI gateway systems, owned by different people or organizations, exchange structured agent messages with explicit trust, scoped permissions, and controlled information boundaries — without either party acting as a relay or sharing credentials.
-
-> The standalone implementation lives at [dp-pcs/ogp](https://github.com/dp-pcs/ogp).
-
----
-
-## What's In This Repo
-
-| Path | Contents |
+| You want… | Look here |
 |---|---|
-| `PROTOCOL.md` | Full protocol specification — identity, handshake, intent format, signature scheme, scope negotiation |
-| `INTENTS.md` | Standard intents specification (message, task-request, status-update, agent-comms) |
-| `DESIGN.md` | Architecture decisions and rationale |
-| `FINDINGS.md` | Development journal — lessons learned, bugs found and fixed, design decisions |
-| `PHASE3.md` | Phase 3 spec — intent taxonomy, handler registry, rate limiting, calendar demo |
-| `RENDEZVOUS.md` | Rendezvous & invite flow spec — zero-config peer discovery (v0.2.14+) |
-| `scripts/` | Reference shell scripts for calendar-read/write intents (Google Calendar + Apple Calendar) |
-| `BACKLOG.md` | Known gaps and planned work |
+| Wire protocol spec | [`dp-pcs/ogp/docs/PROTOCOL.md`](https://github.com/dp-pcs/ogp/blob/main/docs/PROTOCOL.md) |
+| Architectural framing (OGP vs A2A, BGP parallel, design principles) | [`dp-pcs/ogp/docs/ARCHITECTURE.md`](https://github.com/dp-pcs/ogp/blob/main/docs/ARCHITECTURE.md) |
+| Scope model and negotiation | [`dp-pcs/ogp/docs/scopes.md`](https://github.com/dp-pcs/ogp/blob/main/docs/scopes.md) |
+| Agent-comms response levels | [`dp-pcs/ogp/docs/agent-comms.md`](https://github.com/dp-pcs/ogp/blob/main/docs/agent-comms.md) |
+| Rendezvous and invite tokens | [`dp-pcs/ogp/docs/rendezvous.md`](https://github.com/dp-pcs/ogp/blob/main/docs/rendezvous.md) |
+| Multi-framework support (OpenClaw / Hermes / standalone) | [`dp-pcs/ogp/docs/MULTI-FRAMEWORK-DESIGN.md`](https://github.com/dp-pcs/ogp/blob/main/docs/MULTI-FRAMEWORK-DESIGN.md) |
+| CLI reference | [`dp-pcs/ogp/docs/CLI-REFERENCE.md`](https://github.com/dp-pcs/ogp/blob/main/docs/CLI-REFERENCE.md) |
+| Install and quickstart | [`dp-pcs/ogp/README.md`](https://github.com/dp-pcs/ogp) |
 
----
+## Try OGP
 
-## The Short Version
+```bash
+npm install -g @dp-pcs/ogp@latest
+ogp setup
+ogp start --background
+ogp status
+```
 
-Every OGP gateway publishes a federation card at `/.well-known/ogp` — a signed JSON document containing the gateway's public key, display name, and supported capabilities.
+## What's still in this repo (frozen in time)
 
-To federate, Gateway A sends a signed request to Gateway B. A human on Gateway B's side approves (choosing one-way or two-way trust). Both sides store each other's public keys. Every subsequent intent message is signed by the sender and verified by the receiver.
+The files below reflect protocol design as of v0.2.11 (March/April 2026). They are preserved for historical context and may be useful for understanding earlier design decisions, but they are **not authoritative for current behavior**.
 
-The gateway is the trust boundary. Agents never leave their own gateway. The gateway controls what crosses organizational lines.
+- `PROTOCOL.md` — protocol spec snapshot, v0.2.11
+- `INTENTS.md` — intent catalog snapshot
+- `DESIGN.md` — early architecture decisions
+- `RENDEZVOUS.md` — rendezvous discovery design (early version)
+- `FINDINGS.md` — development journal
+- `PHASE3.md` — phase-3 planning doc
+- `PLAN.md`, `BACKLOG.md` — historical planning artifacts
+- `scripts/` — early reference shell scripts for calendar intents
 
----
+## Why was this archived?
 
-## How OGP Relates to A2A
+OGP shipped daily through April 2026. The implementation outpaced the standalone spec repo, and maintaining two sources of truth was creating drift. The repo at `dp-pcs/ogp` now holds both the implementation and the canonical specification, which keeps them aligned.
 
-A2A (Google's Agent-to-Agent protocol) handles agent-to-agent conversation semantics — structured requests, typed responses, task delegation between agents inside enterprise platforms.
+If a second independent implementation of OGP appears in the future — for example, a Python-native daemon — a vendor-neutral spec repository may be revived under a new name. Until then, the implementation defines the spec.
 
-OGP operates at a lower layer. It federates the gateways that agents sit behind. Without OGP, your agents stay inside your gateway. With OGP, gateways establish bilateral trust and agents can coordinate across that trust boundary.
+## Read the build story
 
-They're sequential, not competing. OGP is the handshake. A2A is the conversation.
+The OGP design and build is documented in long-form at [Trilogy AI Center of Excellence](https://trilogyai.substack.com). Notable entries:
 
----
-
-## Protocol Basics
-
-**Cryptographic identity:** Ed25519 keypairs generated per gateway on first boot. Public key published at `/.well-known/ogp`.
-
-**Trust establishment:** Bilateral approval required. Both sides must agree. Either side can revoke.
-
-**Scope negotiation (v0.2.0):** Per-peer scope grants control which intents each peer can access, with rate limits and topic restrictions. Three-layer model: capabilities → negotiation → runtime enforcement.
-
-**Intent messages:** Named, typed operations (`message`, `task-request`, `agent-comms`). Signed by sender, verified by receiver. Scope enforced by the doorman at the receiving gateway.
-
-**Information boundaries:** The receiving gateway decides what reaches its agent. The doorman layer enforces rate limits and rejects out-of-scope requests before anything reaches the main agent.
-
----
-
-## Status
-
-**Current version:** v0.2.11 (March 2026)
-
-The protocol is implemented and working. The reference implementation (`@dp-pcs/ogp`) has been tested across two independent gateways between the US and Spain.
-
-**v0.2.x features:**
-- Scope negotiation with per-peer intent grants
-- Rate limiting (sliding window, per-peer per-intent)
-- Topic restrictions for agent-comms
-- Async reply mechanism (callback + polling)
-- Backward compatibility with v0.1 peers
-- `off` response level for default-deny agent-comms
-- Signed rejection responses
-- Project topic auto-registration on create/approve
-- Entry types vs topics terminology (v0.2.9+)
-- `set-topic`, `set-default`, per-peer default response level (v0.2.10+)
-
-Known gaps are tracked in `BACKLOG.md`. Active development is in [dp-pcs/ogp](https://github.com/dp-pcs/ogp).
-
----
-
-## Related
-
-- [dp-pcs/ogp](https://github.com/dp-pcs/ogp) — standalone OGP daemon, installable alongside any OpenClaw gateway
-- [dp-pcs/openclaw](https://github.com/dp-pcs/openclaw) — OpenClaw gateway platform; integrated OGP implementation on `feature/federation` branch
-- [OpenClaw](https://openclaw.ai) — the AI gateway platform that inspired and ships the reference implementation
+- *Delegated Authority: When Your Agent Decides Without You*
+- *The Project Layer: Shared Workspaces Across Independent Agents*
+- *Five Layers of No: How OGP's Doorman Actually Works*
+- *Breaking Up with OpenClaw: How OGP Learned to Play with Others*
+- *Microsoft Just Unified the Agent Stack, And Forgot the Personal Layer*
